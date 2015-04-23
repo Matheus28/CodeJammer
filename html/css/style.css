@@ -17,6 +17,7 @@ body {
 .progress, .progress-bar {
 	height: 30px;
 	line-height: 30px;
+	font-size: 14px;
 }
 
 .input-text {
