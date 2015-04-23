@@ -1,3 +1,5 @@
+console.log("CodeJammer Master");
+
 var io = require('socket.io')();
 var InputParser = require('./InputParser/InputParser.js');
 
@@ -20,7 +22,11 @@ Array.prototype.remove = function() {
 io.on('connection', function(socket){
 	socket.join('authed');
 	
+	var hasPendingJobs = false;
+	
 	socket.on("createJobs", function(obj){
+		if(hasPendingJobs) return;
+		
 		var parser = null;
 		var splitterString = null;
 		
@@ -37,14 +43,18 @@ io.on('connection', function(socket){
 		
 		socket.emit("resultProgress", { text: "Compiling splitter..." });
 		
+		hasPendingJobs = true;
 		queue.unshift({
-			code: splitter,
+			code: parser,
 			input: obj.inputText,
 			onError: function(){
+				hasPendingJobs = false;
 				socket.emit("resultText", "Error while running splitter, is it correct?");
 			},
 			
 			onSuccess: function(output){
+				hasPendingJobs = false;
+				
 				// Remove empty test cases
 				var tests = output.split(splitterString).filter(function(str){
 					return /\S/.test(str);
@@ -65,6 +75,7 @@ io.on('connection', function(socket){
 					for (var i = 0; i < testsJobs.length; i++) {
 						queue.remove(testsJobs[i]);
 					}
+					hasPendingJobs = false;
 				}
 				
 				function printResult(){
@@ -77,9 +88,11 @@ io.on('connection', function(socket){
 						str += tests[i];
 					}
 					
+					hasPendingJobs = false;
 					socket.emit("resultText", str);
 				}
 				
+				hasPendingJobs = true;
 				for (var i = 0; i < tests.length; i++) {
 					(function(i){
 						var test = tests[i];
@@ -90,6 +103,7 @@ io.on('connection', function(socket){
 								if(supressOutput) return;
 								supressOutput = true;
 								socket.emit("resultText", "At least one of the jobs resulted in an error (timeout or crash). Aborted.");
+								removeAllJobs();
 							},
 							
 							onSuccess: function(testResult){
@@ -112,7 +126,6 @@ io.on('connection', function(socket){
 						
 					})(i);
 				}
-				
 				
 				checkQueue();
 			}
@@ -143,7 +156,7 @@ function generateSplitterString(){
 	return str;
 }
 
-setInterval(updateClients, 1000);
+setInterval(updateClients, 300);
 
 
 
